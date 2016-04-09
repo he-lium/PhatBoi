@@ -1,7 +1,7 @@
 #!/usr/bin/python
 '''
 ENGG1000 Engineering Design and Innovation
-Robot Sumo
+Robot Sumo Tester
 ev3 program to be the remaining robot left in the sumo ring
 Written by:
 Dominic He, Raycole Dai, Tristan Bagnulo,
@@ -32,8 +32,18 @@ left_motor = LargeMotor(OUTPUT_D)
 
 #gs.mode = 'GYRO-RATE'	# Changing the mode resets the gyro
 #gs.mode = 'GYRO-ANG'	# Set gyro mode to return compass angle
-#btn = Button()		# We will need to check EV3 buttons state.
+btn = Button()		# We will need to check EV3 buttons state.
+#while not btn.any()
+#    sleep(0.1)
 
-right_motor.run_direct(duty_cycle_sp=80)
-left_motor.run_direct(duty_cycle_sp=80)
-sleep(4)
+right_motor.run_direct(duty_cycle_sp=-75)
+left_motor.run_direct(duty_cycle_sp=-75)
+counter = 5
+# Run for 5 seconds or until button press
+while counter > 0 or not btn.any():
+    counter -= 1
+    sleep(0.5)
+
+# Stop the motors
+left_motor.stop()
+right_motor.stop()
