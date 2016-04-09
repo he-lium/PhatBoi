@@ -32,23 +32,23 @@ gyro = GyroSensor()
 
 #gs.mode = 'GYRO-RATE'	# Changing the mode resets the gyro
 #gs.mode = 'GYRO-ANG'	# Set gyro mode to return compass angle
-#btn = Button()		# We will need to check EV3 buttons state.
+btn = Button()		# We will need to check EV3 buttons state.
 
 # Spin robot
-right_motor.run_direct(duty_cycle_sp=-80)
-left_motor.run_direct(duty_cycle_sp=80)
-detector_count = 0
-
 while True:
+    if btn.any():
+        break
+    detector_count = 0
+    right_motor.run_direct(duty_cycle_sp=-80)
+    left_motor.run_direct(duty_cycle_sp=80)
     while (detector_count < 5):
         sleep(0.05)
         if us.value() < US_THRESHOLD:
             detector_count += 1
         elif detector_count > 0:
             detector_count = 0
-        print us.value()
+    print us.value()
 
     right_motor.stop()
     left_motor.stop()
     sleep(1.5)
-    detector_count = 0
