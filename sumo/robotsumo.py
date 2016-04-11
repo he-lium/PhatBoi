@@ -30,8 +30,8 @@ us_motor = MediumMotor(OUTPUT_B)
 us = UltrasonicSensor()
 gyro = GyroSensor()
 
-#gs.mode = 'GYRO-RATE'	# Changing the mode resets the gyro
-#gs.mode = 'GYRO-ANG'	# Set gyro mode to return compass angle
+gyro.mode = 'GYRO-RATE'	# Changing the mode resets the gyro
+gyro.mode = 'GYRO-ANG'	# Set gyro mode to return compass angle
 btn = Button()		# We will need to check EV3 buttons state.
 
 def charge():
