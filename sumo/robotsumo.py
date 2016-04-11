@@ -50,9 +50,8 @@ while (detector_count < 5):
         detector_count = 0
 print us.value()
 
-right_motor.stop()
-left_motor.stop()
-sleep(0.3)
+right_motor.stop(stop_command='brake')
+left_motor.stop(stop_command='brake')
 charge()
 while not btn.any():
     sleep(0.1)

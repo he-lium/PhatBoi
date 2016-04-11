@@ -1,4 +1,4 @@
-#!/usr/bin/python
+    #!/usr/bin/python
 '''
 ENGG1000 Engineering Design and Innovation
 Robot Sumo
@@ -43,54 +43,54 @@ t = time.time()
 # Set starting point for front
 us_motor.position = 0
 # Run Ultrasonic motor
-us_motor.run_direct(duty_cycle_sp=40)
+us_motor.run_direct(duty_cycle_sp=35)
 
 detector_count = 0
 first_detection_val = 0
 
 # Move clockwise up to 120 degrees
-while detector_count < 3 or us_motor.position < 120:
+while detector_count < 2 and us_motor.position < 180:
     if us.value() < US_THRESHOLD:
         if detector_count == 0:
             # Get first reading of degrees
             first_detection_val = us_motor.position
         detector_count += 1
-        print "detected, position =", us_motor.position
+        print "detected, position =", us_motor.position, us.value()
     else:
         detector_count = 0
     time.sleep(0.05)
 
 # Print position
-us_motor.stop(stop_command='brake')
+us_motor.stop()
 time.sleep(0.3)
 print first_detection_val
 
 # Try move back to start position
-us_motor.run_direct(duty_cycle_sp=-30)
+us_motor.run_direct(duty_cycle_sp=-35)
 while us_motor.position > 0:
     time.sleep(0.05)
 
-us_motor.stop(stop_command='brake')
-
-# If not found on right, try find on anti-clockwise
-if detector_count < 3:
-    print "looking on left"
-    time.sleep(0.2)
-    us_motor.run_direct(duty_cycle_sp=-40)
-    while detector_count < 3 or us_motor.position > -120:
-        if us.value() < US_THRESHOLD:
-            if detector_count == 0:
-                # Get first reading of degrees
-                first_detection_val= us_motor.position
-            detector_count += 1
-            print "detected, position =", us_motor.position
-        else:
-            detector_count = 0
-        time.sleep(0.05)
-    # move back to start position
-    us_motor.run_direct(duty_cycle_sp=30)
-    while us_motor.position < 0:
-        time.sleep(0.05)
+us_motor.stop()
+#
+# # If not found on right, try find on anti-clockwise
+# if detector_count < 3:
+#     print "looking on left"
+#     time.sleep(0.2)
+#     us_motor.run_direct(duty_cycle_sp=-40)
+#     while detector_count < 3 or us_motor.position > -120:
+#         if us.value() < US_THRESHOLD:
+#             if detector_count == 0:
+#                 # Get first reading of degrees
+#                 first_detection_val= us_motor.position
+#             detector_count += 1
+#             print "detected, position =", us_motor.position
+#         else:
+#             detector_count = 0
+#         time.sleep(0.05)
+#     # move back to start position
+#     us_motor.run_direct(duty_cycle_sp=30)
+#     while us_motor.position < 0:
+#         time.sleep(0.05)
 
 while time.time() - t < 3:
     time.sleep(0.01)
@@ -108,7 +108,7 @@ else:
     right_motor.run_direct(duty_cycle_sp=95)
     left_motor.run_direct(duty_cycle_sp=-95)
 
-while abs(gyro.value()) < abs(first_detection_val - 30) and (us.value() > US_THRESHOLD):
+while abs(gyro.value()) < abs(first_detection_val - 40):
     time.sleep(0.01)
 Sound.beep()
 
