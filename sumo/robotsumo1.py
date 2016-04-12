@@ -40,25 +40,25 @@ while not btn.any():
 t = time.time()
 #time.sleep(0.2)
 
-# Set starting point for front
-us_motor.position = 0
-# Run Ultrasonic motor
-us_motor.run_direct(duty_cycle_sp=35)
+    # Set starting point for front
+    us_motor.position = 0
+    # Run Ultrasonic motor
+    us_motor.run_direct(duty_cycle_sp=35)
 
-detector_count = 0
-first_detection_val = 0
+    detector_count = 0
+    first_detection_val = 0
 
-# Move clockwise up to 120 degrees
-while detector_count < 2 and us_motor.position < 180:
-    if us.value() < US_THRESHOLD:
-        if detector_count == 0:
-            # Get first reading of degrees
-            first_detection_val = us_motor.position
-        detector_count += 1
-        print "detected, position =", us_motor.position, us.value()
-    else:
-        detector_count = 0
-    time.sleep(0.05)
+    # Move clockwise up to 120 degrees
+    while detector_count < 2 and us_motor.position < 180:
+        if us.value() < US_THRESHOLD:
+            if detector_count == 0:
+                # Get first reading of degrees
+                first_detection_val = us_motor.position
+            detector_count += 1
+            print "detected, position =", us_motor.position, us.value()
+        else:
+            detector_count = 0
+        time.sleep(0.05)
 
 # Print position
 us_motor.stop()

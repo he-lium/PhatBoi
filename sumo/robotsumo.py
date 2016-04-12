@@ -29,13 +29,77 @@ us = UltrasonicSensor()
 gyro = GyroSensor()
 btn = Button()
 
+def charge():
+    # TODO More intelligent robot? e.g. Live Tracking
+    right_motor.run_direct(duty_cycle_sp=-100)
+    left_motor.run_direct(duty_cycle_sp=-100)
+    while not btn.any():
+        time.sleep(0.1)
+
 def stop():
     right_motor.stop(stop_command='brake')
     left_motor.stop(stop_command='brake')
     us_motor.stop()
 
-def robotsumo():
+def play(opponent_initial):
+    # Rotate robot to position
+    gyro.mode = 'GYRO-RATE'  # Reset gyro and
+    gyro.mode = 'GYRO-ANG'  # Set to return compass angle
+    # Spin wheels to rotate robot to opponent
+    if opponent_initial >= 0:
+        right_motor.run_direct(duty_cycle_sp=-95)
+        left_motor.run_direct(duty_cycle_sp=95)
+    else:
+        right_motor.run_direct(duty_cycle_sp=95)
+        left_motor.run_direct(duty_cycle_sp=-95)
+    while abs(gyro.value()) < abs(opponent_initial) - 40: # compensating 40 in or out of brace?
+        time.sleep(0.01)
+    Sound.beep()
+    right_motor.stop(stop_command='brake')
+    left_motor.stop(stop_command='brake')
+    charge()
+    stop()
     pass
+
+
+def robotsumo():
+    # Set 3 second timer
+    t = time.time()
+    # Set starting point for front
+    us_motor.position = 0
+    # Run Ultrasonic motor
+    us_motor.run_direct(duty_cycle_sp=35)
+
+    detector_count = 0
+    first_detection_val = 0
+
+    # Move clockwise(right) up to 180 degrees
+    # Until ultrasonic gets two consecutive readings below threshold
+    while detector_count < 2 and us_motor.position < 180:
+        if us.value() < US_THRESHOLD:
+            if detector_count == 0:
+                # Get first reading of degrees
+                first_detection_val = us_motor.position
+            detector_count += 1
+            print "detected, position =", us_motor.position, us.value()
+        else:
+            detector_count = 0
+        time.sleep(0.05)
+
+    us_motor.stop()
+    print first_detection_val
+    # Move back into start position
+    us_motor.run_direct(duty_cycle_sp=-35)
+    while us_motor.position > 0:
+        time.sleep(0.05)
+    us_motor.stop(stop_command='brake')
+
+    # Wait for the remaining 3 seconds
+    while time.time() - t < 3:
+        time.sleep(0.01)
+
+    # Get to work!
+    play(first_detection_val)
 
 # Wait for initial button input
 while not btn.any():
