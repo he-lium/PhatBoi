@@ -53,7 +53,7 @@ def play(opponent_initial):
         right_motor.run_direct(duty_cycle_sp=95)
         left_motor.run_direct(duty_cycle_sp=-95)
     while abs(gyro.value()) < abs(opponent_initial) - 45: # compensating 40 in or out of brace?
-        time.sleep(0.05)
+        time.sleep(0.01)
     Sound.beep()
     right_motor.stop(stop_command='brake')
     left_motor.stop(stop_command='brake')
@@ -66,8 +66,8 @@ def play(opponent_initial):
 def robotsumo(right=True):
     # Set 3 second timer
     t = time.time()
-    # Set starting point for front
     time.sleep(0.7)
+    # Set starting point for front
     us_motor.position = 0
     # Run Ultrasonic motor
     if right:
@@ -79,9 +79,11 @@ def robotsumo(right=True):
     first_detection_val = 0
 
     if right:
-        # Move clockwise(right) up to 180 degrees
+        pass
+    else:
+        # Move anticlockwise(left) up to 180 degrees
         # Until ultrasonic gets two consecutive readings below threshold
-        while detector_count < 2 and us_motor.position < 180:
+        while detector_count < 2 and us_motor.position > -180:
             if us.value() < US_THRESHOLD:
                 if detector_count == 0:
                     # Get first reading of degrees
@@ -92,15 +94,13 @@ def robotsumo(right=True):
                 detector_count = 0
             time.sleep(0.05)
 
-        us_motor.stop()
+        us_motor.stop(stop_command='brake')
         print first_detection_val
         # Move back into start position
-        us_motor.run_direct(duty_cycle_sp=-35)
-        while us_motor.position > 0:
+        us_motor.run_direct(duty_cycle_sp=35)
+        while us_motor.position < 0:
             time.sleep(0.05)
         us_motor.stop(stop_command='brake')
-    else:
-        pass
 
     # Wait for the remaining 3 seconds
     while time.time() - t < 3:
@@ -109,12 +109,13 @@ def robotsumo(right=True):
     # Get to work!
     play(first_detection_val)
 
+
 right = True
 # System argument to search for left?
 if len(sys.argv) == 2 and sys.argv[1] == 'l':
     right = False
-# Wait for initial button input
 Sound.beep()
+# Wait for initial button input
 while not btn.any():
     pass
-robotsumo(right)
+robotsumo(right=0)
