@@ -58,7 +58,7 @@ def play(opponent_initial):
     right_motor.stop(stop_command='brake')
     left_motor.stop(stop_command='brake')
     print gyro.value()
-    #charge()
+    charge()
     stop()
     pass
 
