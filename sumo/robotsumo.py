@@ -20,14 +20,14 @@ from ev3dev.auto import *
 US_THRESHOLD = 600
 
 # Connect motors
-right_motor = LargeMotor(OUTPUT_A)
-left_motor = LargeMotor(OUTPUT_D)
-us_motor = MediumMotor(OUTPUT_B)
+right_motor = LargeMotor(OUTPUT_A); assert right_motor.connected
+left_motor = LargeMotor(OUTPUT_D); assert left_motor.connected
+us_motor = MediumMotor(OUTPUT_B); assert us_motor.connected
 
 # Connect sensors
-us = UltrasonicSensor()
-gyro = GyroSensor()
-btn = Button()
+us = UltrasonicSensor(); assert us.connected
+gyro = GyroSensor(); assert gyro.connected
+btn = Button();
 
 def charge():
     # TODO More intelligent robot? e.g. Live Tracking
@@ -47,12 +47,12 @@ def play(opponent_initial):
     gyro.mode = 'GYRO-ANG'  # Set to return compass angle
     # Spin wheels to rotate robot to opponent
     if opponent_initial >= 0:
-        right_motor.run_direct(duty_cycle_sp=-95)
-        left_motor.run_direct(duty_cycle_sp=95)
+        right_motor.run_direct(duty_cycle_sp=-80)
+        left_motor.run_direct(duty_cycle_sp=80)
     else:
-        right_motor.run_direct(duty_cycle_sp=95)
-        left_motor.run_direct(duty_cycle_sp=-95)
-    while abs(gyro.value()) < abs(opponent_initial) - 45: # compensating 40 in or out of brace?
+        right_motor.run_direct(duty_cycle_sp=80)
+        left_motor.run_direct(duty_cycle_sp=-80)
+    while abs(gyro.value()) < abs(opponent_initial) - 50: # compensating 40 in or out of brace?
         time.sleep(0.05)
     Sound.beep()
     right_motor.stop(stop_command='brake')
@@ -76,7 +76,7 @@ def robotsumo(right=True):
         us_motor.run_direct(duty_cycle_sp=-35)
 
     detector_count = 0
-    first_detection_val = 0
+    first_detection_val = 76 # Default detection value
 
     if right:
         # Move clockwise(right) up to 180 degrees
