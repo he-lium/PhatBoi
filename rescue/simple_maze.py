@@ -26,18 +26,17 @@ left_motor = LargeMotor(OUTPUT_C); assert left_motor.connected
 
 # Connect sensors
 us = UltrasonicSensor(); assert us.connected
-gyro = GyroSensor(); #assert gyro.connected
+#gyro = GyroSensor(); #assert gyro.connected
 color = ColorSensor(); assert color.connected
 push = TouchSensor(); assert push.connected
 btn = Button()
 
 def run_motors(left, right):
-    left_motor.run_direct(duty_cycle_sp=left)
-    right_motor.run_direct(duty_cycle_sp=right)
+    left_motor.run_direct(duty_cycle_sp=left*-1)
+    right_motor.run_direct(duty_cycle_sp=right*-1)
 
 def stop():
-    # Stop both motors
-	left_motor.stop(stop_command='brake')
+    left_motor.stop(stop_command='brake')
     right_motor.stop(stop_command='brake')
 
 path_on_left = lambda : us.value() > US_THRESHOLD
@@ -55,3 +54,24 @@ while not btn.any():
         break
     time.sleep(0.1)
 stop()
+
+class RunMotors(threading.Thread):
+    def __init__(self, rotation):
+        self.rotation = rotation
+        #self.bearing = gyro.value()
+        self.adjust = 0
+        self.interrupt = False
+
+    def run(self):
+        if self.rotation == 0: # running straight
+            run_motors(60, 60)
+            while not self.interrupt:
+                pass # add adjustment code
+        else:
+            if self.rotation == 1: # rotate anticlockwise
+                pass
+
+
+    def stop(self):
+        self.interrupt = True
+
