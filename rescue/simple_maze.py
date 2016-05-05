@@ -74,10 +74,10 @@ class RunMotors(threading.Thread):
     def __init__(self, task):
         threading.Thread.__init__(self)
         self.task = task
-        # self.bearing = gyro.value()
         self.adjust = 0
         self.interrupt = False
         self.new_path = False
+        self.running_straight = True
 
     def run(self):
         gyro.mode = 'GYRO-RATE'
@@ -86,14 +86,30 @@ class RunMotors(threading.Thread):
             run_motors(50, 50)
             while not self.interrupt:
                 if not (self.new_path or path_on_left()):
+                    time.sleep(0.3)
                     self.new_path = True
+                    print "new wall on left"
                 time.sleep(0.1)
                 # add adjustment code
+                if self.running_straight:
+                    if gyro.value() >= 5:
+                        self.running_straight = False
+                        run_motors(45, 60)
+                        print "robot on right: adjusting left"
+                    elif gyro.value() <= -5:
+                        self.running_straight = False
+                        run_motors(60, 45)
+                        print "robot on left: adjusting right"
+                elif abs(gyro.value()) < 5:
+                    run_motors(50, 50)
+                    self.running_straight = True
+                    print "robot nominal"
+
         else:
             if self.task == TURN_RIGHT:
                 run_motors(40, -40)
             elif self.task == TURN_LEFT:
-                run_motors(-40, 40)
+                run_motors(-30, 30)
             while abs(gyro.value()) < 85 and not self.interrupt:
                 time.sleep(0.06)
             stop()
@@ -107,6 +123,9 @@ class RunMotors(threading.Thread):
 
 
 def main():
+    #Sound.beep()
+    #while not btn.any():
+    #    time.sleep(0.3)
     fred = RunMotors(FORWARD)
     try:
         while True:
@@ -114,22 +133,32 @@ def main():
             while fred.isAlive():
                 time.sleep(0.1)
                 if obstacle_ahead():
+                    print "obstacle ahead"
                     fred.stop()
                     fred.join()  # Wait for thread to stop
                     reverse()
-                    fred = RunMotors(TURN_RIGHT) # Rotate clockwise
+                    fred = RunMotors(TURN_RIGHT)  # Rotate clockwise
                     fred.start()
-                    fred.join() # wait for turning to complete
+                    while fred.isAlive():
+                        le  ft_motor.position = 0
+                        right_motor.position = 0
+                        time.sleep(0.1) # wait for turning to complete
                 elif fred.new_path and path_on_left():
-                    time.sleep(0.3) # Wait robot to be fully visible in path
-                    fred.stop()
+                    Sound.beep()
+                    print "new path on left: us=", us.value()
+                    while True:  # Wait robot to be fully visible in path
+                        time.sleep(0.1)
+                    #fred.stop()
                     fred.join()
                     fred = RunMotors(TURN_LEFT)
                     fred.start()
-                    fred.join()
+                    while fred.isAlive():
+                        time.sleep(0.1)
             fred = RunMotors(FORWARD)
 
     except KeyboardInterrupt:
+        rotation_val = (left_motor.position + right_motor.position) / 2
+        print rotation_val
         if fred.isAlive():
             fred.stop()
             fred.join()
