@@ -19,7 +19,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from ev3dev.auto import *
 
 # Ultrasonic detection threshold
-US_THRESHOLD = 600
+US_THRESHOLD = 400
 FORWARD = 0
 TURN_RIGHT = 1
 TURN_LEFT = 2
@@ -39,7 +39,7 @@ assert us.connected
 assert gyro.connected
 assert color.connected
 assert push.connected
-
+color.mode = color.MODE_COL_COLOR
 
 def run_motors(left, right):
     left_motor.run_direct(duty_cycle_sp=left * -1)
@@ -88,7 +88,7 @@ class RunMotors(threading.Thread):
                 if not (self.new_path or path_on_left()):
                     time.sleep(0.3)
                     self.new_path = True
-                    print "new wall on left"
+                    print "new wall on left", us.value()
                 time.sleep(0.1)
                 # add adjustment code
                 if self.running_straight:
@@ -136,19 +136,29 @@ def main():
                     print "obstacle ahead"
                     fred.stop()
                     fred.join()  # Wait for thread to stop
+                    # check if red
+                    if red_obstacle():
+                        Sound.beep()
+                        time.sleep(0.5)
+                        return
                     reverse()
-                    fred = RunMotors(TURN_RIGHT)  # Rotate clockwise
+                    if path_on_left():
+                        fred = RunMotors(TURN_LEFT)
+                    else:
+                        fred = RunMotors(TURN_RIGHT)  # Rotate clockwise
                     fred.start()
                     while fred.isAlive():
-                        le  ft_motor.position = 0
-                        right_motor.position = 0
                         time.sleep(0.1) # wait for turning to complete
                 elif fred.new_path and path_on_left():
-                    Sound.beep()
+                    #Sound.beep()
                     print "new path on left: us=", us.value()
-                    while True:  # Wait robot to be fully visible in path
+                    left_motor.position = 0
+                    right_motor.position = 0
+                    rotation_val = (left_motor.position + right_motor.position) / 2
+                    while rotation_val > -210:  # Wait robot to be fully visible in path
                         time.sleep(0.1)
-                    #fred.stop()
+                        rotation_val = (left_motor.position + right_motor.position) / 2
+                    fred.stop()
                     fred.join()
                     fred = RunMotors(TURN_LEFT)
                     fred.start()
@@ -157,8 +167,8 @@ def main():
             fred = RunMotors(FORWARD)
 
     except KeyboardInterrupt:
-        rotation_val = (left_motor.position + right_motor.position) / 2
-        print rotation_val
+        #rotation_val = (left_motor.position + right_motor.position) / 2
+        #print "rotation: ", rotation_val
         if fred.isAlive():
             fred.stop()
             fred.join()
