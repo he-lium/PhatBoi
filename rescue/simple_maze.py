@@ -70,16 +70,20 @@ def red_obstacle():
     return color.value() == 5
 
 
+rotate_offset = 0
+
 class RunMotors(threading.Thread):
-    def __init__(self, task):
+    def __init__(self, task, offset=0):
         threading.Thread.__init__(self)
         self.task = task
         self.adjust = 0
         self.interrupt = False
         self.new_path = False
         self.running_straight = True
+        self.offset = offset
 
     def run(self):
+        global rotate_offset
         gyro.mode = 'GYRO-RATE'
         gyro.mode = 'GYRO-ANG'  # Reset gyro
         if self.task == FORWARD:  # running straight
@@ -92,28 +96,33 @@ class RunMotors(threading.Thread):
                 time.sleep(0.1)
                 # add adjustment code
                 if self.running_straight:
-                    if gyro.value() >= 5:
+                    if gyro.value() + self.offset >= 3:
                         self.running_straight = False
                         run_motors(45, 60)
                         print "robot on right: adjusting left"
-                    elif gyro.value() <= -5:
+                    elif gyro.value() + self.offset <= -3:
                         self.running_straight = False
                         run_motors(60, 45)
                         print "robot on left: adjusting right"
-                elif abs(gyro.value()) < 5:
+                elif abs(gyro.value() + self.offset) < 3:
                     run_motors(50, 50)
                     self.running_straight = True
                     print "robot nominal"
+            rotate_offset += gyro.value()
 
         else:
+            #new_offset = 0
             if self.task == TURN_RIGHT:
                 run_motors(40, -40)
             elif self.task == TURN_LEFT:
                 run_motors(-30, 30)
-            while abs(gyro.value()) < 85 and not self.interrupt:
+            while abs(gyro.value() + self.offset) < 85 and not self.interrupt:
                 time.sleep(0.06)
             stop()
-
+            if self.task == TURN_RIGHT:
+                rotate_offset = gyro.value() + self.offset - 90
+            elif self.task == TURN_LEFT:
+                rotate_offset = gyro.value() + self.offset + 90
         stop()
         time.sleep(0.5)
         print gyro.value()
@@ -155,7 +164,7 @@ def main():
                     left_motor.position = 0
                     right_motor.position = 0
                     rotation_val = (left_motor.position + right_motor.position) / 2
-                    while rotation_val > -210:  # Wait robot to be fully visible in path
+                    while rotation_val > -360:  # Wait robot to be fully visible in path
                         time.sleep(0.1)
                         rotation_val = (left_motor.position + right_motor.position) / 2
                     fred.stop()
@@ -164,7 +173,7 @@ def main():
                     fred.start()
                     while fred.isAlive():
                         time.sleep(0.1)
-            fred = RunMotors(FORWARD)
+            fred = RunMotors(FORWARD, rotate_offset)
 
     except KeyboardInterrupt:
         #rotation_val = (left_motor.position + right_motor.position) / 2
