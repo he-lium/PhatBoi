@@ -84,6 +84,7 @@ class RunMotors(threading.Thread):
 
     def run(self):
         global rotate_offset
+        directions = []
         gyro.mode = 'GYRO-RATE'
         gyro.mode = 'GYRO-ANG'  # Reset gyro
         if self.task == FORWARD:  # running straight
@@ -113,9 +114,12 @@ class RunMotors(threading.Thread):
         else:
             #new_offset = 0
             if self.task == TURN_RIGHT:
-                run_motors(40, -40)
+                run_motors(30, -30)
+                directions.append['right']
             elif self.task == TURN_LEFT:
                 run_motors(-30, 30)
+                directions.append['left']
+            
             while abs(gyro.value() + self.offset) < 85 and not self.interrupt:
                 time.sleep(0.06)
             stop()
@@ -149,6 +153,7 @@ def main():
                     if red_obstacle():
                         Sound.beep()
                         time.sleep(0.5)
+                        int pickedUp = TRUE
                         return
                     reverse()
                     if path_on_left():
@@ -184,3 +189,6 @@ def main():
 
 if __name__ == '__main__':
     main()
+    
+    # if picked up = 1 , then look at revesred Directions[]
+    # if 1st direction =
