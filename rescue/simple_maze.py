@@ -105,13 +105,19 @@ class RunMotors(threading.Thread):
                 time.sleep(0.1)
                 if self.new_path and not (path_on_left()):
                     if time.time() - measure_time > 0.7:
-                        if us.value()  < 70: # Too close to left wall
-                            self.offset += 6 # Veer right
-                            self.wall_move = VEERING_RIGHT
-                        elif us.value(0) > 250: # Too close to right wall
-                            self.offset -= 6 # Veer left
-                            self.wall_move = VEERING_RIGHT
-                        measure_time = us.value()
+                        dist_change = us.value() - measure_prev
+                        if dist_change < -10:
+                            pass
+                        elif dist_change > 10:
+                            pass
+                        #if us.value()  < 70: # Too close to left wall
+                        #    self.offset += 6 # Veer right
+                        #    self.wall_move = VEERING_RIGHT
+                        #elif us.value(0) > 250: # Too close to right wall
+                        #    self.offset -= 6 # Veer left
+                        #    self.wall_move = VEERING_RIGHT
+                        measure_prev = us.value()
+                        measure_time = time.time()
                 # adjustment code for right angle
                 if self.running_straight:
                     if gyro.value() + self.offset >= 3:

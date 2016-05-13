@@ -29,41 +29,32 @@ OPEN = -1
 CLOSE = 1
 
 # Connect motors
-clamp_motor = LargeMotor(OUTPUT_D)
-right_motor = LargeMotor(OUTPUT_B)
-left_motor = LargeMotor(OUTPUT_C)
-assert right_motor.connected
-assert left_motor.connected
+clamp_motor = MediumMotor(OUTPUT_A)
+#right_motor = LargeMotor(OUTPUT_B)
+#left_motor = LargeMotor(OUTPUT_C)
+#assert right_motor.connected
+#assert left_motor.connected
 assert clamp_motor.connected
 # Connect sensors
-us = UltrasonicSensor()
-gyro = GyroSensor()
-color = ColorSensor()
-push = TouchSensor()
 btn = Button()
-
-assert us.connected
-assert gyro.connected
-assert color.connected
-assert push.connected
-color.mode = color.MODE_COL_COLOR
 
 def move_clamp(change):
     #change = -1 to open, change = 1 to close
-    clamp_motor.run_direct(duty_cycle_sp=change*30)
+    clamp_motor.run_direct(duty_cycle_sp=change*60)
 
 def main():
+    
     clampState = OPEN
-    fred = RunMotors(FORWARD)
-    try:
-        while True:
-            if btn.any():
-                if clampState = OPEN:
-                    move_clamp(CLOSE)
-                    clampState = CLOSE
-                else:
-                    move_clamp(OPEN)
-                    clampState = OPEN
+    while True:
+        if btn.any():
+            if clampState == OPEN:
+                move_clamp(CLOSE)
+                clampState = CLOSE
+                time.sleep(1)
+            else:
+                move_clamp(OPEN)
+                clampState = OPEN
+                time.sleep(1)
 
 if __name__ == '__main__':
     main()
