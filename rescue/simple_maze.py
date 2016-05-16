@@ -29,10 +29,12 @@ VEERING_RIGHT = 1
 VEERING_LEFT = -1
 
 # Connect motors
-right_motor = LargeMotor(OUTPUT_B)
-left_motor = LargeMotor(OUTPUT_C)
+right_motor = LargeMotor(OUTPUT_C)
+left_motor = LargeMotor(OUTPUT_D)
+clamp_motor = MediumMotor(OUTPUT_B)
 assert right_motor.connected
 assert left_motor.connected
+assert clamp_motor.connected
 # Connect sensors
 us = UltrasonicSensor()
 gyro = GyroSensor()
@@ -50,6 +52,10 @@ def run_motors(left, right):
     right_motor.run_direct(duty_cycle_sp=right * -1)
 
 
+def move_clamp(direction):
+    clamp_motor.run_direct(duty_cycle_sp=direction*40)
+
+
 def reverse():
     run_motors(-35, -35)
     time.sleep(0.5)
@@ -60,7 +66,7 @@ def reverse():
 def stop():
     left_motor.stop(stop_command='brake')
     right_motor.stop(stop_command='brake')
-
+    clamp_motor.stop()
 
 def path_on_left():
     return us.value() > US_THRESHOLD
@@ -103,7 +109,7 @@ class RunMotors(threading.Thread):
                     measure_prev = us.value();
                     measure_time = time.time();
                 time.sleep(0.1)
-                if self.new_path and not (path_on_left()):
+                '''if self.new_path and not (path_on_left()):
                     if time.time() - measure_time > 0.7:
                         dist_change = us.value() - measure_prev
                         if dist_change < -10:
@@ -117,7 +123,7 @@ class RunMotors(threading.Thread):
                         #    self.offset -= 6 # Veer left
                         #    self.wall_move = VEERING_RIGHT
                         measure_prev = us.value()
-                        measure_time = time.time()
+                        measure_time = time.time()'''
                 # adjustment code for right angle
                 if self.running_straight:
                     if gyro.value() + self.offset >= 3:
@@ -154,6 +160,28 @@ class RunMotors(threading.Thread):
     def stop(self):
         self.interrupt = True
 
+def uturn():
+    gyro.mode = 'GYRO-RATE'
+    gyro.mode = 'GYRO-ANG'  # Reset gyro
+    run_motors(-40, 40)
+    while abs(gyro.value()) < 175:
+        time.sleep(0.05)
+    stop()
+    time.sleep(0.3)
+    move_clamp(1)
+    time.sleep(0.4)
+    stop()
+    time.sleep(0.2)
+
+    run_motors(-30, -30)
+    time.sleep(1.5)
+    move_clamp(-1)
+    time.sleep(0.4)
+    stop()
+    time.sleep(1)
+    run_motors(40, 40)
+    time.sleep(2)
+
 
 def main():
     fred = RunMotors(FORWARD)
@@ -162,6 +190,16 @@ def main():
             fred.start()
             while fred.isAlive():
                 time.sleep(0.1)
+                # check if red
+                if red_obstacle():
+                    fred.stop()
+                    fred.join()
+                    Sound.beep()
+                    time.sleep(0.5)
+
+                    uturn()
+                    return
+
                 if obstacle_ahead():
                     print "obstacle ahead"
                     fred.stop()
@@ -170,7 +208,7 @@ def main():
                     if red_obstacle():
                         Sound.beep()
                         time.sleep(0.5)
-                        return
+
                     reverse()
                     if path_on_left():
                         fred = RunMotors(TURN_LEFT)
