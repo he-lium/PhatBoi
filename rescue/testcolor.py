@@ -46,6 +46,18 @@ assert gyro.connected
 assert color.connected
 assert push.connected
 
+def is_red():
+    r = color.value(0)
+    g = color.value(1)
+    b = color.value(2)
+    if r < 5:
+        return False
+    if g <=2 or b <= 2:
+        return True
+    if r > (g+b)/2:
+        return True
+    return False
+
 
 color.mode = color.MODE_RGB_RAW
 while True:
@@ -53,4 +65,4 @@ while True:
     r = color.value(0)
     g = color.value(1)
     b = color.value(2)
-    print 'r', r, 'g', g, 'b', b
+    print is_red(), 'r', r, 'g', g, 'b', b
