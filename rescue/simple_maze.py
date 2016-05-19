@@ -143,6 +143,7 @@ def main():
     try:
         while True:
             fred.start()
+            #os.system("start home/path of the file  )
             while fred.isAlive():
                 time.sleep(0.1)
                 if obstacle_ahead():
