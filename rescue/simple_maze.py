@@ -46,7 +46,7 @@ assert us.connected
 assert gyro.connected
 assert color.connected
 assert push.connected
-color.mode = color.MODE_RGB_RAW
+color.mode = color.MODE_COL_COLOR
 
 def run_motors(left, right):
     left_motor.run_direct(duty_cycle_sp=left * -1)
@@ -77,8 +77,8 @@ def obstacle_ahead():
     return push.value() == 1
 
 
-#def red_obstacle():
-#    return color.value() == 5
+def red_obstacle():
+    return color.value() == 5
 
 
 rotate_offset = 0
@@ -105,12 +105,12 @@ class RunMotors(threading.Thread):
             #os.system("start home/file.wav") we need to add in the audio file and write in the location, also i dont know if this is the right spot
             while not self.interrupt:
                 if (not self.new_path) and (not path_on_left()):
-                    time.sleep(0.1)
                     print "new wall on left", us.value()
                     time.sleep(0.3)
                     self.new_path = True
                     measure_prev = us.value();
                     measure_time = time.time();
+                time.sleep(0.1)
                 '''if self.new_path and not (path_on_left()):
                     if time.time() - measure_time > 0.7:
                         dist_change = us.value() - measure_prev
@@ -126,7 +126,7 @@ class RunMotors(threading.Thread):
                         #    self.wall_move = VEERING_RIGHT
                         measure_prev = us.value()
                         measure_time = time.time()'''
-                # adjustment code for moving in a straight line
+                # adjustment code for right angle
                 if self.running_straight:
                     if gyro.value() + self.offset >= 3:
                         self.running_straight = False
@@ -157,6 +157,7 @@ class RunMotors(threading.Thread):
                 rotate_offset = gyro.value() + self.offset + 90
         stop()
         time.sleep(0.5)
+        print gyro.value()
 
     def stop(self):
         self.interrupt = True
@@ -183,32 +184,8 @@ def uturn():
     run_motors(40, 40)
     time.sleep(2)
 
-def is_red():
-    r = color.value(0)
-    g = color.value(1)
-    b = color.value(2)
-    if r < 5:
-        return False
-    if g <=2 or b <= 2:
-        return True
-    if r > (g+b)/2:
-        return True
-    return False
 
-def turn_left():
-    turnThread = RunMotors(TURN_LEFT)
-    while turnThread.isAlive():
-        time.sleep(0.1)
-
-def turn_right():
-    turnThread = RunMotors(TURN_RIGHT)
-    while turnThread.isAlive():
-        time.sleep(0.1)
-
-def mean_rotation():  # Return average movement of the wheels
-    return  (left_motor.position + right_motor.position) / -2
-
-def search(): #  Returns sequence of paths taken
+def main():
     fred = RunMotors(FORWARD)
     try:
         while True:
@@ -216,7 +193,7 @@ def search(): #  Returns sequence of paths taken
             while fred.isAlive():
                 time.sleep(0.1)
                 # check if red
-                if is_red():
+                if red_obstacle():
                     fred.stop()
                     fred.join()
                     Sound.beep()
@@ -229,37 +206,43 @@ def search(): #  Returns sequence of paths taken
                     print "obstacle ahead"
                     fred.stop()
                     fred.join()  # Wait for thread to stop
+                    # check if red
+                    if red_obstacle():
+                        Sound.beep()
+                        time.sleep(0.5)
 
                     reverse()
                     if path_on_left():
-                        turn_left()
+                        fred = RunMotors(TURN_LEFT)
                     else:
-                        turn_right()
-
+                        fred = RunMotors(TURN_RIGHT)  # Rotate clockwise
+                    fred.start()
+                    while fred.isAlive():
+                        time.sleep(0.1) # wait for turning to complete
                 elif fred.new_path and path_on_left():
                     print "new path on left: us=", us.value()
                     left_motor.position = 0
                     right_motor.position = 0
-                    rotation_val = mean_rotation()
-                    while rotation_val < 360:  # Wait robot to be fully visible in path
+                    rotation_val = (left_motor.position + right_motor.position) / 2
+                    while rotation_val > -360:  # Wait robot to be fully visible in path
                         time.sleep(0.1)
-                        rotation_val = mean_rotation()
+                        rotation_val = (left_motor.position + right_motor.position) / 2
                     fred.stop()
                     fred.join()
-                    turn_left()
+                    fred = RunMotors(TURN_LEFT)
+                    fred.start()
+                    while fred.isAlive():
+                        time.sleep(0.1)
             fred = RunMotors(FORWARD, rotate_offset)
         if fred.isAlive():
             fred.stop()
             fred.join()
     except KeyboardInterrupt:
+        #rotation_val = (left_motor.position + right_motor.position) / 2
+        #print "rotation: ", rotation_val
         if fred.isAlive():
             fred.stop()
             fred.join()
-        return None
-
-def main():
-    search()
-
 
 if __name__ == '__main__':
     main()
