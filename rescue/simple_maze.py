@@ -13,6 +13,7 @@ import os
 import time
 import threading
 
+
 # Look for additional libraries in parent dir
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 # Import ev3dev library
@@ -101,6 +102,7 @@ class RunMotors(threading.Thread):
         gyro.mode = 'GYRO-ANG'  # Reset gyro
         if self.task == FORWARD:  # running straight
             run_motors(50, 50)
+            #os.system("start home/file.wav") we need to add in the audio file and write in the location, also i dont know if this is the right spot
             while not self.interrupt:
                 if (not self.new_path) and (not path_on_left()):
                     time.sleep(0.1)
