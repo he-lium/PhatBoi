@@ -46,7 +46,7 @@ assert us.connected
 assert gyro.connected
 assert color.connected
 assert push.connected
-color.mode = color.MODE_COL_COLOR
+color.mode = color.MODE_RGB_RAW
 
 def run_motors(left, right):
     left_motor.run_direct(duty_cycle_sp=left * -1)
@@ -67,6 +67,8 @@ def reverse():
 def stop():
     left_motor.stop(stop_command='brake')
     right_motor.stop(stop_command='brake')
+
+def stop_clamps():
     clamp_motor.stop()
 
 def path_on_left():
@@ -75,10 +77,6 @@ def path_on_left():
 
 def obstacle_ahead():
     return push.value() == 1
-
-
-def red_obstacle():
-    return color.value() == 5
 
 
 rotate_offset = 0
@@ -108,8 +106,8 @@ class RunMotors(threading.Thread):
                     print "new wall on left", us.value()
                     time.sleep(0.3)
                     self.new_path = True
-                    measure_prev = us.value();
-                    measure_time = time.time();
+                    #measure_prev = us.value();
+                    #measure_time = time.time();
                 time.sleep(0.1)
                 '''if self.new_path and not (path_on_left()):
                     if time.time() - measure_time > 0.7:
@@ -162,7 +160,20 @@ class RunMotors(threading.Thread):
     def stop(self):
         self.interrupt = True
 
+def is_red():
+    r = color.value(0)
+    g = color.value(1)
+    b = color.value(2)
+    if r < 5:
+        return False
+    if g <=2 or b <= 2:
+        return True
+    if r > (g+b)/2:
+        return True
+    return False
+
 def uturn():
+    reverse()
     gyro.mode = 'GYRO-RATE'
     gyro.mode = 'GYRO-ANG'  # Reset gyro
     run_motors(-40, 40)
@@ -171,19 +182,19 @@ def uturn():
     stop()
     time.sleep(0.3)
     move_clamp(1)
-    time.sleep(0.4)
-    stop()
+    time.sleep(0.7)
+    stop_clamps()
     time.sleep(0.2)
 
     run_motors(-30, -30)
     time.sleep(1.5)
     move_clamp(-1)
-    time.sleep(0.4)
+    time.sleep(1.2)
     stop()
     time.sleep(1)
     run_motors(40, 40)
     time.sleep(2)
-
+    stop()
 
 def main():
     fred = RunMotors(FORWARD)
@@ -193,7 +204,7 @@ def main():
             while fred.isAlive():
                 time.sleep(0.1)
                 # check if red
-                if red_obstacle():
+                if is_red():
                     fred.stop()
                     fred.join()
                     Sound.beep()
@@ -206,10 +217,6 @@ def main():
                     print "obstacle ahead"
                     fred.stop()
                     fred.join()  # Wait for thread to stop
-                    # check if red
-                    if red_obstacle():
-                        Sound.beep()
-                        time.sleep(0.5)
 
                     reverse()
                     if path_on_left():
