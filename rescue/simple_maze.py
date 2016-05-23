@@ -54,7 +54,7 @@ def run_motors(left, right):
 
 
 def move_clamp(direction):
-    clamp_motor.run_direct(duty_cycle_sp=direction*40)
+    clamp_motor.run_direct(duty_cycle_sp=direction*60)
 
 
 def reverse():
@@ -100,6 +100,7 @@ class RunMotors(threading.Thread):
         gyro.mode = 'GYRO-ANG'  # Reset gyro
         if self.task == FORWARD:  # running straight
             run_motors(50, 50)
+            self.wall_time = time.time()
             #os.system("start home/file.wav") we need to add in the audio file and write in the location, also i dont know if this is the right spot
             while not self.interrupt:
                 if (not self.new_path) and (not path_on_left()):
@@ -109,35 +110,32 @@ class RunMotors(threading.Thread):
                     #measure_prev = us.value();
                     #measure_time = time.time();
                 time.sleep(0.1)
-                '''if self.new_path and not (path_on_left()):
-                    if time.time() - measure_time > 0.7:
-                        dist_change = us.value() - measure_prev
-                        if dist_change < -10:
-                            pass
-                        elif dist_change > 10:
-                            pass
-                        #if us.value()  < 70: # Too close to left wall
-                        #    self.offset += 6 # Veer right
-                        #    self.wall_move = VEERING_RIGHT
-                        #elif us.value(0) > 250: # Too close to right wall
-                        #    self.offset -= 6 # Veer left
-                        #    self.wall_move = VEERING_RIGHT
-                        measure_prev = us.value()
-                        measure_time = time.time()'''
+                if self.new_path and not path_on_left(): # There's a wall on the left
+                    if time.time() - self.wall_time > 1.3:
+                        if us.value() < 80:
+                            print  "Too close to wall; veering right"
+                            self.wall_move = VEERING_RIGHT
+                            self.wall_time = time.time()
+                            self.offset -= 8
+                        elif us.value() > 220:
+                            print "Too far from wall; veering left"
+                            self.offset += 8
+                            self.wall_move = VEERING_LEFT
+                            self.wall_time = time.time()
                 # adjustment code for right angle
                 if self.running_straight:
                     if gyro.value() + self.offset >= 3:
                         self.running_straight = False
                         run_motors(45, 60)
-                        print "robot on right: adjusting left"
+                        #print "robot on right: adjusting left"
                     elif gyro.value() + self.offset <= -3:
                         self.running_straight = False
                         run_motors(60, 45)
-                        print "robot on left: adjusting right"
+                        #print "robot on left: adjusting right"
                 elif abs(gyro.value() + self.offset) < 3:
                     run_motors(50, 50)
                     self.running_straight = True
-                    print "robot nominal"
+                    #print "robot nominal"
             rotate_offset += gyro.value()
 
         else:
@@ -183,7 +181,7 @@ def uturn():
     time.sleep(0.3)
     move_clamp(1)
     time.sleep(0.7)
-    stop_clamps()
+    clamp_motor.stop()
     time.sleep(0.2)
 
     run_motors(-30, -30)
@@ -191,10 +189,15 @@ def uturn():
     move_clamp(-1)
     time.sleep(1.2)
     stop()
+    clamp_motor.run_direct(duty_cycle_sp=-95)
     time.sleep(1)
-    run_motors(40, 40)
+    #stop_clamps()
+    run_motors(50, 50)
     time.sleep(2)
     stop()
+    time.sleep(0.5)
+    run_motors(-50, 50)
+    time.sleep(5)
 
 def main():
     fred = RunMotors(FORWARD)
@@ -245,11 +248,16 @@ def main():
             fred.stop()
             fred.join()
     except KeyboardInterrupt:
-        #rotation_val = (left_motor.position + right_motor.position) / 2
-        #print "rotation: ", rotation_val
         if fred.isAlive():
             fred.stop()
             fred.join()
+    except Exception, e:
+        stop()
+        print str(e)
+        if fred.isAlive():
+            fred.stop()
+            fred.join()
+
 
 if __name__ == '__main__':
     main()
