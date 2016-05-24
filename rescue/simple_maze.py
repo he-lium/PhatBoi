@@ -12,7 +12,7 @@ import sys
 import os
 import time
 import threading
-
+import traceback
 
 # Look for additional libraries in parent dir
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -36,6 +36,8 @@ clamp_motor = MediumMotor(OUTPUT_B)
 assert right_motor.connected
 assert left_motor.connected
 assert clamp_motor.connected
+right_motor.position = 0
+left_motor.position = 0
 # Connect sensors
 us = UltrasonicSensor()
 gyro = GyroSensor()
@@ -71,14 +73,16 @@ def stop():
 def stop_clamps():
     clamp_motor.stop()
 
-def path_on_left():
-    return us.value() > US_THRESHOLD
-
 
 def obstacle_ahead():
     return push.value() == 1
 
 
+def average_wheel_dist():
+    return (left_motor.position + right_motor.position) / -2
+
+path_queue = list()
+us_lock = threading.Lock()
 rotate_offset = 0
 
 class RunMotors(threading.Thread):
@@ -96,32 +100,41 @@ class RunMotors(threading.Thread):
         measure_prev = -1
         measure_time = -1.0
         global rotate_offset
+        global us_lock
         gyro.mode = 'GYRO-RATE'
         gyro.mode = 'GYRO-ANG'  # Reset gyro
         if self.task == FORWARD:  # running straight
             run_motors(50, 50)
             self.wall_time = time.time()
+            previous_wall_dist = -1
             #os.system("start home/file.wav") we need to add in the audio file and write in the location, also i dont know if this is the right spot
             while not self.interrupt:
-                if (not self.new_path) and (not path_on_left()):
-                    print "new wall on left", us.value()
+                if (not self.new_path) and (not us.value() > US_THRESHOLD):
+                    print "new wall on left, us=", us.value()
                     time.sleep(0.3)
                     self.new_path = True
-                    #measure_prev = us.value();
-                    #measure_time = time.time();
+                    previous_wall_dist = us.value()
                 time.sleep(0.1)
-                if self.new_path and not path_on_left(): # There's a wall on the left
-                    if time.time() - self.wall_time > 1.3:
-                        if us.value() < 80:
-                            print  "Too close to wall; veering right"
-                            self.wall_move = VEERING_RIGHT
-                            self.wall_time = time.time()
-                            self.offset -= 8
-                        elif us.value() > 220:
-                            print "Too far from wall; veering left"
-                            self.offset += 8
-                            self.wall_move = VEERING_LEFT
-                            self.wall_time = time.time()
+                us_lock.acquire()
+                if self.new_path and not us.value() > US_THRESHOLD: # There's a wall on the left
+                    if time.time() - self.wall_time > 0.5:
+                        if us.value() < 80: # If too close moving towards left wall
+                            current_wall_dist = us.value()
+                            if current_wall_dist - previous_wall_dist < 0:
+                                print  "Too close to wall; veering right"
+                                self.wall_move = VEERING_RIGHT
+                                self.wall_time = time.time()
+                                self.offset -= 5
+                                previous_wall_dist = current_wall_dist
+                        elif us.value() > 220: # If too far from left wall and moving away
+                            current_wall_dist = us.value()
+                            if current_wall_dist - previous_wall_dist < 0:
+                                print "Too far from wall; veering left"
+                                self.offset += 5
+                                self.wall_move = VEERING_LEFT
+                                self.wall_time = time.time()
+                                previous_wall_dist = current_wall_dist
+                us_lock.release()
                 # adjustment code for right angle
                 if self.running_straight:
                     if gyro.value() + self.offset >= 3:
@@ -201,6 +214,7 @@ def uturn():
 
 def main():
     fred = RunMotors(FORWARD)
+    us_lock = threading.RLock()
     try:
         while True:
             fred.start()
@@ -212,25 +226,14 @@ def main():
                     fred.join()
                     Sound.beep()
                     time.sleep(0.5)
-
-                    uturn()
+                    print path_queue
+                    #uturn()
                     return
-
-                if obstacle_ahead():
-                    print "obstacle ahead"
-                    fred.stop()
-                    fred.join()  # Wait for thread to stop
-
-                    reverse()
-                    if path_on_left():
-                        fred = RunMotors(TURN_LEFT)
-                    else:
-                        fred = RunMotors(TURN_RIGHT)  # Rotate clockwise
-                    fred.start()
-                    while fred.isAlive():
-                        time.sleep(0.1) # wait for turning to complete
-                elif fred.new_path and path_on_left():
+                us_lock.acquire()
+                if fred.new_path and us.value() > US_THRESHOLD:
+                    us_lock.release()
                     print "new path on left: us=", us.value()
+                    path_queue.append((average_wheel_dist(), "left"))
                     left_motor.position = 0
                     right_motor.position = 0
                     rotation_val = (left_motor.position + right_motor.position) / 2
@@ -239,10 +242,27 @@ def main():
                         rotation_val = (left_motor.position + right_motor.position) / 2
                     fred.stop()
                     fred.join()
-                    fred = RunMotors(TURN_LEFT)
+                    fred = RunMotors(TURN_LEFT, rotate_offset)
                     fred.start()
                     while fred.isAlive():
                         time.sleep(0.1)
+                else:
+                    us_lock.release()
+                    if obstacle_ahead():
+                        print "obstacle ahead"
+                        fred.stop()
+                        fred.join()  # Wait for thread to stop
+                        dist_travelled = average_wheel_dist()
+                        reverse()
+                        if us.value() > US_THRESHOLD:
+                            path_queue.append((dist_travelled, "left"))
+                            fred = RunMotors(TURN_LEFT, rotate_offset)
+                        else:
+                            path_queue.append((dist_travelled, "right"))
+                            fred = RunMotors(TURN_RIGHT, rotate_offset)  # Rotate clockwise
+                        fred.start()
+                        while fred.isAlive():
+                            time.sleep(0.1) # wait for turning to complete
             fred = RunMotors(FORWARD, rotate_offset)
         if fred.isAlive():
             fred.stop()
@@ -253,10 +273,12 @@ def main():
             fred.join()
     except Exception, e:
         stop()
-        print str(e)
+        traceback.print_exc()
         if fred.isAlive():
             fred.stop()
             fred.join()
+    finally:
+        print path_queue
 
 
 if __name__ == '__main__':
