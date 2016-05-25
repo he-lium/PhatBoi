@@ -152,6 +152,7 @@ class RunMotors(threading.Thread):
             rotate_offset += gyro.value()
 
         else:
+
             #new_offset = 0
             if self.task == TURN_RIGHT:
                 run_motors(40, -40)
