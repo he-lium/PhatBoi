@@ -29,7 +29,7 @@ OPEN = -1
 CLOSE = 1
 
 # Connect motors
-clamp_motor = MediumMotor(OUTPUT_A)
+clamp_motor = MediumMotor(OUTPUT_B)
 #right_motor = LargeMotor(OUTPUT_B)
 #left_motor = LargeMotor(OUTPUT_C)
 #assert right_motor.connected

@@ -44,13 +44,14 @@ btn = Button()
 class CheckUS(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
-        self.interrupt = True
+        self.interrupt = False
 
 
     def run(self):
         try:
             while not self.interrupt:
-                a = int(us.value())
+                a = us.value()
+                print a
                 time.sleep(0.05)
         except:
             traceback.print_exc()
@@ -63,8 +64,9 @@ def main():
     t = CheckUS()
     try:
         t.start()
-        while t.is_alive:
-            b = int(us.value())
+        while t.isAlive():
+            b = us.value()
+            print b
             time.sleep(0.1)
     except KeyboardInterrupt:
         traceback.print_exc()
