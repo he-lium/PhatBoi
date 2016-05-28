@@ -111,9 +111,6 @@ class RunMotors(threading.Thread):
                 run_motors(50, 50)
                 self.wall_time = time.time()
                 previous_wall_dist = -1
-                #os.system("start home/file.wav")
-                #we need to add in the audio file and write in the location,
-                #also i dont know if this is the right spot
                 while not self.interrupt:
                     us_value = us.value()
                     if (not self.new_path) and (not us_value > US_THRESHOLD):
@@ -125,7 +122,7 @@ class RunMotors(threading.Thread):
                     # N.B Comment out this section if crashes
                     if self.new_path and not us_value > US_THRESHOLD: # There's a wall on the left
                         if time.time() - self.wall_time > 0.5:
-                            if us_value < 80: # If too close moving towards left wall
+                            if us_value < 10: # If too close moving towards left wall
                                 current_wall_dist = us_value
                                 if current_wall_dist - previous_wall_dist < 0: # Converging with left wall
                                     print  "Too close to wall; veering right"
@@ -221,6 +218,7 @@ def uturn():
     time.sleep(1)
 
 def search():
+    global searchError
     fred = RunMotors(FORWARD, rotate_offset)
     try:
         while True:
@@ -278,8 +276,8 @@ def search():
             fred.stop()
             fred.join()
     except KeyboardInterrupt:
+        searchError = True
         if fred.isAlive():
-            searchError = True
             fred.stop()
             fred.join()
             sys.exit()
@@ -312,7 +310,15 @@ def rescue():
                     time.sleep(0.1)
                 time.sleep(0.5)
             elif direction == "right":
+                if us.value() < US_THRESHOLD: # If there still isn't a path on the left
+                    return_thread = RunMotors(FORWARD, rotate_offset)
+                    return_thread.start()
+                    while us_value < US_THRESHOLD:
+                        time.sleep(0.1)
+                    return_thread.stop()
+                    return_thread.join()
                 # Turn left
+                return_thread = RunMotors(TURN_LEFT, rotate_offset)
                 return_thread.start()
                 while return_thread.isAlive():
                     time.sleep(0.1)
@@ -327,6 +333,7 @@ def rescue():
             while average_wheel_dist() < target_distance or target_time > 0:
                 time.sleep(0.1)
                 target_time -= 0.1
+
             return_thread.stop()
             return_thread.join()
     except KeyboardInterrupt:
@@ -343,8 +350,12 @@ def rescue():
     finally:
         stop()
 
+def release_clamps():
+    move_clamp(-1)
+    time.sleep(0.5)
 
 if __name__ == '__main__':
     search()
     if not searchError:
         rescue()
+        release_clamps()
