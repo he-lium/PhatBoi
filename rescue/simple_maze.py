@@ -289,11 +289,14 @@ def search():
         stop()
 
 def rescue():
+    global rotate_offset
     rotate_offset = 0
+    return_thread = None
     try:
         while len(path_stack) > 0:
             # insert something here
             target_distance, direction = path_stack.pop()
+
             if direction == "left":
                 # Turn right
                 return_thread = RunMotors(TURN_RIGHT, rotate_offset)
@@ -307,6 +310,8 @@ def rescue():
                 while return_thread.isAlive():
                     time.sleep(0.1)
                 time.sleep(0.5)
+            elif direction == "found":
+                target_distance += 200
 
 
             # Go back pre-determined distance
@@ -317,13 +322,13 @@ def rescue():
             return_thread.stop()
             return_thread.join()
     except KeyboardInterrupt:
-        if return_thread.isAlive():
+        if return_thread != None and return_thread.isAlive():
             return_thread.stop()
             return_thread.join()
         sys.exit()
     except:
         traceback.print_exc()
-        if return_thread.isAlive():
+        if return_thread != None and return_thread.isAlive():
             return_thread.stop()
             return_thread.join()
         sys.exit()
