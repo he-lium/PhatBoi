@@ -99,6 +99,7 @@ class RunMotors(threading.Thread):
         self.error = False
 
     def run(self):
+        self.start_time = time.time()
         global rotate_offset
         global us_value, color_r, color_g, color_b
         try:
@@ -110,7 +111,9 @@ class RunMotors(threading.Thread):
                 run_motors(50, 50)
                 self.wall_time = time.time()
                 previous_wall_dist = -1
-                #os.system("start home/file.wav") we need to add in the audio file and write in the location, also i dont know if this is the right spot
+                #os.system("start home/file.wav")
+                #we need to add in the audio file and write in the location,
+                #also i dont know if this is the right spot
                 while not self.interrupt:
                     us_value = us.value()
                     if (not self.new_path) and (not us_value > US_THRESHOLD):
@@ -141,11 +144,11 @@ class RunMotors(threading.Thread):
                     if self.running_straight:
                         if gyro.value() + self.offset >= 3:
                             self.running_straight = False
-                            run_motors(45, 60)
+                            run_motors(40, 60)
                             #print "robot on right: adjusting left"
                         elif gyro.value() + self.offset <= -3:
                             self.running_straight = False
-                            run_motors(60, 45)
+                            run_motors(60, 40)
                             #print "robot on left: adjusting right"
                     elif abs(gyro.value() + self.offset) < 3:
                         run_motors(50, 50)
@@ -154,8 +157,6 @@ class RunMotors(threading.Thread):
                 rotate_offset += gyro.value()
 
             else:
-
-                #new_offset = 0
                 if self.task == TURN_RIGHT:
                     run_motors(40, -40)
                 elif self.task == TURN_LEFT:
@@ -195,6 +196,7 @@ def is_red():
         traceback.print_exc()
         return False
 
+searchError = False
 
 def uturn():
     reverse()
@@ -227,7 +229,8 @@ def search():
                 time.sleep(0.1)
                 # check if red
                 if is_red():
-                    path_stack.append((average_wheel_dist(), "found"))
+                    # Record the wheel distance, time taken and direction
+                    path_stack.append((average_wheel_dist(), time.time() - fred.wall_time, "found"))
                     fred.stop()
                     fred.join()
                     Sound.beep()
@@ -237,7 +240,7 @@ def search():
                     return
                 if fred.new_path and us_value > US_THRESHOLD:
                     print "new path on left: us=", us_value
-                    path_stack.append((average_wheel_dist(), "left"))
+                    path_stack.append((average_wheel_dist(), time.time() - fred.wall_time, "left"))
                     left_motor.position = 0
                     right_motor.position = 0
                     rotation_val = (left_motor.position + right_motor.position) / 2
@@ -259,15 +262,16 @@ def search():
                         dist_travelled = average_wheel_dist()
                         reverse()
                         if us_value > US_THRESHOLD:
-                            path_stack.append((dist_travelled, "left"))
+                            path_stack.append((dist_travelled, time.time() - fred.wall_time, "left"))
                             fred = RunMotors(TURN_LEFT, rotate_offset)
                         else:
-                            path_stack.append((dist_travelled, "right"))
+                            path_stack.append((dist_travelled, time.time() - fred.wall_time, "right"))
                             fred = RunMotors(TURN_RIGHT, rotate_offset)  # Rotate clockwise
                         fred.start()
                         while fred.isAlive():
                             time.sleep(0.1) # wait for turning to complete
             if fred.error:
+                searchError = True
                 return
             fred = RunMotors(FORWARD, rotate_offset)
         if fred.isAlive():
@@ -275,11 +279,13 @@ def search():
             fred.join()
     except KeyboardInterrupt:
         if fred.isAlive():
+            searchError = True
             fred.stop()
             fred.join()
             sys.exit()
     except:
         traceback.print_exc()
+        searchError = True
         if fred.isAlive():
             fred.stop()
             fred.join()
@@ -288,6 +294,7 @@ def search():
         print path_stack
         stop()
 
+
 def rescue():
     global rotate_offset
     rotate_offset = 0
@@ -295,7 +302,7 @@ def rescue():
     try:
         while len(path_stack) > 0:
             # insert something here
-            target_distance, direction = path_stack.pop()
+            target_distance, target_time, direction = path_stack.pop()
 
             if direction == "left":
                 # Turn right
@@ -310,15 +317,16 @@ def rescue():
                 while return_thread.isAlive():
                     time.sleep(0.1)
                 time.sleep(0.5)
-            elif direction == "found":
-                target_distance += 200
+            #elif direction == "found":
 
+            target_distance += 200
 
             # Go back pre-determined distance
             return_thread = RunMotors(FORWARD, rotate_offset)
             return_thread.start()
-            while average_wheel_dist() < target_distance:
+            while average_wheel_dist() < target_distance or target_time > 0:
                 time.sleep(0.1)
+                target_time -= 0.1
             return_thread.stop()
             return_thread.join()
     except KeyboardInterrupt:
@@ -338,4 +346,5 @@ def rescue():
 
 if __name__ == '__main__':
     search()
-    rescue()
+    if not searchError:
+        rescue()
