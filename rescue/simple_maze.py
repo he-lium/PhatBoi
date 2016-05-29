@@ -132,7 +132,7 @@ class RunMotors(threading.Thread):
                                     self.wall_time = time.time()
                                     self.offset -= 8
                                     previous_wall_dist = current_wall_dist
-                            elif us_value > 220: # If too far from left wall and moving away
+                            elif us_value > 180: # If too far from left wall and moving away
                                 current_wall_dist = us_value
                                 if current_wall_dist - previous_wall_dist > 0: # Diverging from left wall
                                     print "Too far from wall; veering left"
@@ -221,6 +221,9 @@ def uturn():
     stop()
     clamp_motor.run_direct(duty_cycle_sp=-95)
     time.sleep(1)
+    run_motors(50, -50)
+    time.sleep(0.2)
+
 
 def search():
     global searchError
@@ -245,19 +248,19 @@ def search():
                     return
                 if fred.new_path and us_value > US_THRESHOLD:
                     print "new path on left: us=", us_value
-                    path_stack.append((average_wheel_dist(), time.time() - fred.wall_time, "left"))
-                    left_motor.position = 0
-                    right_motor.position = 0
-                    rotation_val = (left_motor.position + right_motor.position) / 2
-                    while rotation_val > -360:  # Wait robot to be fully visible in path
+                    init_rotation_val = average_wheel_dist()
+                    while average_wheel_dist() - init_rotation_val < 360:  # Wait robot to be fully visible in path
                         time.sleep(0.1)
-                        rotation_val = (left_motor.position + right_motor.position) / 2
-                    fred.stop()
-                    fred.join()
-                    fred = RunMotors(TURN_LEFT, rotate_offset)
-                    fred.start()
-                    while fred.isAlive():
-                        time.sleep(0.1)
+                    if us_value > US_THRESHOLD: # Still path on left
+                        fred.stop()
+                        fred.join()
+                        path_stack.append((average_wheel_dist() - 360, time.time() - fred.wall_time, "left"))
+                        fred = RunMotors(TURN_LEFT, rotate_offset)
+                        fred.start()
+                        while fred.isAlive():
+                            time.sleep(0.1)
+                    else:
+                        print "\tfalse alarm, keep going"
                 else:
                     if obstacle_ahead() or color_b >= 60:
                         print "obstacle ahead"
@@ -330,7 +333,6 @@ def rescue():
     return_thread = None
     try:
         while len(path_stack) > 0:
-            # insert something here
             target_distance, target_time, direction = path_stack.pop()
 
             if direction == "left":
