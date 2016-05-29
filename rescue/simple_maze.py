@@ -204,25 +204,32 @@ def uturn():
     reverse()
     gyro.mode = 'GYRO-RATE'
     gyro.mode = 'GYRO-ANG'  # Reset gyro
+
+    # Turn 180 degrees
     run_motors(-40, 40)
     while abs(gyro.value()) < 175:
         time.sleep(0.05)
     stop()
     time.sleep(0.3)
+
+    # Open clamps
     move_clamp(1)
     time.sleep(0.7)
     clamp_motor.stop()
     time.sleep(0.2)
 
+    # Slightly reverse into can
     run_motors(-30, -30)
     time.sleep(1.5)
-    move_clamp(-1)
+    move_clamp(-1) # Close clamps
     time.sleep(1.2)
     stop()
     clamp_motor.run_direct(duty_cycle_sp=-95)
-    time.sleep(1)
+    time.sleep(0.5)
+
     run_motors(50, -50)
-    time.sleep(0.2)
+    time.sleep(0.1)
+    stop()
 
 
 def search():
@@ -260,14 +267,13 @@ def search():
                         while fred.isAlive():
                             time.sleep(0.1)
                     else:
-                        print "\tfalse alarm, keep going"
+                        print "***** false alarm, keep going"
                 else:
                     if obstacle_ahead() or color_b >= 60:
                         print "obstacle ahead"
                         fred.stop()
                         while fred.isAlive():
                             fred.new_path = False
-                        print color_r, color_g, color_b
                         dist_travelled = average_wheel_dist()
                         print color_r, color_g, color_b
                         reverse()
