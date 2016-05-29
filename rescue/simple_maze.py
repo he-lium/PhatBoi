@@ -65,7 +65,6 @@ def reverse():
     stop()
     time.sleep(0.4)
 
-
 def stop():
     left_motor.stop(stop_command='brake')
     right_motor.stop(stop_command='brake')
@@ -76,6 +75,10 @@ def stop_clamps():
 
 def obstacle_ahead():
     return push.value() == 1
+
+
+def reset_gyro():
+    gyro.mode = gyro.MODE_GYRO_RATE
 
 
 def average_wheel_dist():
@@ -120,9 +123,9 @@ class RunMotors(threading.Thread):
                         previous_wall_dist = us_value
                     time.sleep(0.1)
                     # N.B Comment out this section if crashes
-                    if self.new_path and not us_value > US_THRESHOLD: # There's a wall on the left
+                    if self.new_path and us_value < US_THRESHOLD: # There's a wall on the left
                         if time.time() - self.wall_time > 0.5:
-                            if us_value < 10: # If too close moving towards left wall
+                            if us_value < 100: # If too close moving towards left wall
                                 current_wall_dist = us_value
                                 if current_wall_dist - previous_wall_dist < 0: # Converging with left wall
                                     print  "Too close to wall; veering right"
@@ -155,8 +158,10 @@ class RunMotors(threading.Thread):
 
             else:
                 if self.task == TURN_RIGHT:
+                    print "-- turning right\n"
                     run_motors(40, -40)
                 elif self.task == TURN_LEFT:
+                    print "-- turning left\n"
                     run_motors(-30, 30)
                 while abs(gyro.value() + self.offset) < 85 and not self.interrupt:
                     time.sleep(0.06)
@@ -229,6 +234,8 @@ def search():
                 if is_red():
                     # Record the wheel distance, time taken and direction
                     path_stack.append((average_wheel_dist(), time.time() - fred.wall_time, "found"))
+                    print "-------------- FOUND --------------------"
+                    print "rgb", color_r, color_g, color_b
                     fred.stop()
                     fred.join()
                     Sound.beep()
@@ -252,13 +259,16 @@ def search():
                     while fred.isAlive():
                         time.sleep(0.1)
                 else:
-                    if obstacle_ahead():
+                    if obstacle_ahead() or color_b >= 60:
                         print "obstacle ahead"
                         fred.stop()
-                        fred.join()  # Wait for thread to stop
+                        while fred.isAlive():
+                            fred.new_path = False
                         print color_r, color_g, color_b
                         dist_travelled = average_wheel_dist()
+                        print color_r, color_g, color_b
                         reverse()
+                        print color_r, color_g, color_b
                         if us_value > US_THRESHOLD:
                             path_stack.append((dist_travelled, time.time() - fred.wall_time, "left"))
                             fred = RunMotors(TURN_LEFT, rotate_offset)
@@ -292,6 +302,27 @@ def search():
         print path_stack
         stop()
 
+# when returning, goes back along straight path if we
+# hit the wall while turning right
+def right_buffer():
+    reverse()
+
+    # turn left
+    t = RunMotors(TURN_LEFT, rotate_offset)
+    t.start()
+    while t.isAlive():
+        time.sleep(0.1)
+    time.sleep(0.5)
+    # Go forward 0.5 s
+    t = RunMotors(FORWARD, rotate_offset)
+    t.start()
+    time.sleep(0.5)
+    # Turn left
+    t = RunMotors(TURN_RIGHT, rotate_offset)
+    t.start()
+    while t.isAlive():
+        time.sleep(0.1)
+    time.sleep(0.3)
 
 def rescue():
     global rotate_offset
@@ -324,15 +355,27 @@ def rescue():
                     time.sleep(0.1)
                 time.sleep(0.5)
             #elif direction == "found":
-
-            target_distance += 200
+            if len(path_stack) >= 1:
+                target_distance += 200
 
             # Go back pre-determined distance
             return_thread = RunMotors(FORWARD, rotate_offset)
+            time_elapsed = 0
             return_thread.start()
-            while average_wheel_dist() < target_distance or target_time > 0:
+            while average_wheel_dist() < target_distance or time_elapsed < target_time:
+                if push.value() == 1:
+                    return_thread.stop()
+                    return_thread.join()
+                    if average_wheel_dist() < 150:
+                        right_buffer()
+                        return_thread = RunMotors(FORWARD, rotate_offset)
+                        time_elapsed = 0
+                        return_thread.start()
+                        continue
+                    else:
+                        break
                 time.sleep(0.1)
-                target_time -= 0.1
+                time_elapsed += 0.1
 
             return_thread.stop()
             return_thread.join()
@@ -352,7 +395,7 @@ def rescue():
 
 def release_clamps():
     move_clamp(-1)
-    time.sleep(0.5)
+    time.sleep(1.5)
 
 if __name__ == '__main__':
     search()
