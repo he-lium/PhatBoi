@@ -50,6 +50,8 @@ assert gyro.connected
 assert color.connected
 assert push.connected
 color.mode = color.MODE_RGB_RAW
+ignore_left = True
+
 
 def run_motors(left, right):
     left_motor.run_direct(duty_cycle_sp=left * -1)
@@ -244,7 +246,7 @@ def uturn():
 
 
 def search():
-    global searchError, path_stack
+    global searchError, path_stack, ignore_left
     fred = RunMotors(FORWARD, rotate_offset)
     try:
         while True:
@@ -264,7 +266,7 @@ def search():
                     print path_stack
                     uturn()
                     return
-                if fred.new_path and us_value > US_THRESHOLD:
+                if fred.new_path and us_value > US_THRESHOLD and not ignore_left:
                     print "new path on left: us=", us_value
                     init_rotation_val = average_wheel_dist()
                     threshold_check = 0
@@ -294,8 +296,13 @@ def search():
                         reverse()
                         print color_r, color_g, color_b
                         if us_value > US_THRESHOLD:
-                            path_stack.append((dist_travelled, time.time() - fred.wall_time, TURN_LEFT))
-                            fred = RunMotors(TURN_LEFT, rotate_offset)
+                            if not ignore_left:
+                                path_stack.append((dist_travelled, time.time() - fred.wall_time, TURN_LEFT))
+                                fred = RunMotors(TURN_LEFT, rotate_offset)
+                            else:
+                                path_stack.append((dist_travelled, time.time() - fred.wall_time, TURN_RIGHT))
+                                fred = RunMotors(TURN_RIGHT, rotate_offset)  # Rotate clockwise
+                                ignore_left = False
                         else:
                             path_stack.append((dist_travelled, time.time() - fred.wall_time, TURN_RIGHT))
                             fred = RunMotors(TURN_RIGHT, rotate_offset)  # Rotate clockwise
@@ -385,7 +392,7 @@ def rescue():
                 if us.value() < US_THRESHOLD: # If there still isn't a path on the left
                     return_thread = RunMotors(FORWARD, rotate_offset)
                     return_thread.start()
-                    while us_value < US_THRESHOLD and push.value() == 0:
+                    while us_value < US_THRESHOLD:
                         time.sleep(0.1)
                     return_thread.stop()
                     return_thread.join()
@@ -407,7 +414,7 @@ def rescue():
                 if push.value() == 1:
                     return_thread.stop()
                     return_thread.join()
-                    if average_wheel_dist() < 150 and direction == TURN_LEFT:
+                    if average_wheel_dist() < 150:
                         right_buffer()
                         return_thread = RunMotors(FORWARD, rotate_offset)
                         time_elapsed = 0
