@@ -21,9 +21,10 @@ from ev3dev.auto import *
 
 # Ultrasonic detection threshold
 US_THRESHOLD = 450
+# RunMotors directions
 FORWARD = 0
 TURN_RIGHT = 1
-TURN_LEFT = 2
+TURN_LEFT = -1
 
 # Wall adjustment modes
 VEERING_RIGHT = 1
@@ -79,10 +80,13 @@ def obstacle_ahead():
 
 def reset_gyro():
     gyro.mode = gyro.MODE_GYRO_RATE
+    gyro.mode = gyro.MODE_GYRO_ANG
 
+l_motor_pos = 0
+r_motor_pos = 0
 
 def average_wheel_dist():
-    return (left_motor.position + right_motor.position) / -2
+    return (l_motor_pos + r_motor_pos) / -2
 
 path_stack = list()
 rotate_offset = 0
@@ -105,16 +109,20 @@ class RunMotors(threading.Thread):
         self.start_time = time.time()
         global rotate_offset
         global us_value, color_r, color_g, color_b
+        global l_motor_pos, r_motor_pos
         try:
-            gyro.mode = 'GYRO-RATE'
-            gyro.mode = 'GYRO-ANG'  # Reset gyro
+            reset_gyro()
             right_motor.position = 0
             left_motor.position = 0
+            l_motor_pos = 0
+            r_motor_pos = 0
             if self.task == FORWARD:  # running straight
                 run_motors(50, 50)
                 self.wall_time = time.time()
                 previous_wall_dist = -1
                 while not self.interrupt:
+                    l_motor_pos = left_motor.position
+                    r_motor_pos = right_motor.position
                     us_value = us.value()
                     if (not self.new_path) and (not us_value > US_THRESHOLD):
                         print "new wall on left, us=", us_value
@@ -141,16 +149,18 @@ class RunMotors(threading.Thread):
                                     previous_wall_dist = current_wall_dist
 
                     # adjustment code for right angle
+                    gyro_value = gyro.value()
                     if self.running_straight:
-                        if gyro.value() + self.offset >= 3:
+
+                        if gyro_value + self.offset >= 3:
                             self.running_straight = False
                             run_motors(40, 60)
                             #print "robot on right: adjusting left"
-                        elif gyro.value() + self.offset <= -3:
+                        elif gyro_value + self.offset <= -3:
                             self.running_straight = False
                             run_motors(60, 40)
                             #print "robot on left: adjusting right"
-                    elif abs(gyro.value() + self.offset) < 3:
+                    elif abs(gyro_value + self.offset) < 3:
                         run_motors(50, 50)
                         self.running_straight = True
                         #print "robot nominal"
@@ -162,7 +172,7 @@ class RunMotors(threading.Thread):
                     run_motors(40, -40)
                 elif self.task == TURN_LEFT:
                     print "-- turning left\n"
-                    run_motors(-30, 30)
+                    run_motors(-40, 40)
                 while abs(gyro.value() + self.offset) < 85 and not self.interrupt:
                     time.sleep(0.06)
                 stop()
@@ -202,8 +212,7 @@ searchError = False
 
 def uturn():
     reverse()
-    gyro.mode = 'GYRO-RATE'
-    gyro.mode = 'GYRO-ANG'  # Reset gyro
+    reset_gyro()
 
     # Turn 180 degrees
     run_motors(-40, 40)
@@ -233,7 +242,7 @@ def uturn():
 
 
 def search():
-    global searchError
+    global searchError, path_stack
     fred = RunMotors(FORWARD, rotate_offset)
     try:
         while True:
@@ -261,7 +270,7 @@ def search():
                     if us_value > US_THRESHOLD: # Still path on left
                         fred.stop()
                         fred.join()
-                        path_stack.append((average_wheel_dist() - 360, time.time() - fred.wall_time, "left"))
+                        path_stack.append((average_wheel_dist() - 360, time.time() - fred.wall_time, TURN_LEFT))
                         fred = RunMotors(TURN_LEFT, rotate_offset)
                         fred.start()
                         while fred.isAlive():
@@ -279,10 +288,10 @@ def search():
                         reverse()
                         print color_r, color_g, color_b
                         if us_value > US_THRESHOLD:
-                            path_stack.append((dist_travelled, time.time() - fred.wall_time, "left"))
+                            path_stack.append((dist_travelled, time.time() - fred.wall_time, TURN_LEFT))
                             fred = RunMotors(TURN_LEFT, rotate_offset)
                         else:
-                            path_stack.append((dist_travelled, time.time() - fred.wall_time, "right"))
+                            path_stack.append((dist_travelled, time.time() - fred.wall_time, TURN_RIGHT))
                             fred = RunMotors(TURN_RIGHT, rotate_offset)  # Rotate clockwise
                         fred.start()
                         while fred.isAlive():
@@ -290,6 +299,24 @@ def search():
             if fred.error:
                 searchError = True
                 return
+            stack_len = len(path_stack)
+            if stack_len >= 8 and stack_len % 2 == 0:
+                # Detect that's in a loop
+                net_sum = sum((n[3] for n in path_stack))
+                print "net_sum =", net_sum
+                if net_sum <= -8: # Loop on the left; anti-clockwise loop
+                    loop1 = sum((x[3] for x in path_stack[0:stack_len/2]))
+                    loop2 = sum((x[3] for x in path_stack[stack_len/2:]))
+                    if loop1 == loop2: # We're in a loop
+                        path_stack = list()
+                        reset_gyro() # turn 180 degrees
+                        run_motors(-40, 40)
+                        while abs(gyro.value()) <= 175:
+                            time.sleep()
+                        stop()
+                        time.sleep(0.4)
+                if net_sum >= 8:
+                    pass # TODO
             fred = RunMotors(FORWARD, rotate_offset)
         if fred.isAlive():
             fred.stop()
@@ -341,14 +368,14 @@ def rescue():
         while len(path_stack) > 0:
             target_distance, target_time, direction = path_stack.pop()
 
-            if direction == "left":
+            if direction == TURN_LEFT:
                 # Turn right
                 return_thread = RunMotors(TURN_RIGHT, rotate_offset)
                 return_thread.start()
                 while return_thread.isAlive():
                     time.sleep(0.1)
                 time.sleep(0.5)
-            elif direction == "right":
+            elif direction == TURN_RIGHT:
                 if us.value() < US_THRESHOLD: # If there still isn't a path on the left
                     return_thread = RunMotors(FORWARD, rotate_offset)
                     return_thread.start()
@@ -387,10 +414,12 @@ def rescue():
 
             return_thread.stop()
             return_thread.join()
+        Sound.beep()
     except KeyboardInterrupt:
         if return_thread != None and return_thread.isAlive():
             return_thread.stop()
             return_thread.join()
+        Sound.beep()
         sys.exit()
     except:
         traceback.print_exc()
